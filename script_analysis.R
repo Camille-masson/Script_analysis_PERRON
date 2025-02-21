@@ -3,10 +3,10 @@
 #----------------------------------#
 gc()
 
-# Chargement de la configuration
+# Loading the configuration
 source("config.R")
 
-# Définition de l'année d'analyse
+# Defining the analysis year
 YEAR <- 9999
 ALPAGES_TOTAL <- list(
   "9999" = c("Alpage_demo"),
@@ -16,138 +16,136 @@ ALPAGES_TOTAL <- list(
 )
 ALPAGES <- ALPAGES_TOTAL[[as.character(YEAR)]]
 
+#### 1. DATA SIMPLIFICATION IN GPKG ####
+#--------------------------------------#
 
-#### 1. Simplification en GPKG ####
-#----------------------------------#
-
-
-if (FALSE) {  # Mettre TRUE pour exécuter
+if (FALSE) {  # Set to TRUE to execute
   library(terra)
   source(file.path(functions_dir, "Functions_filtering.R"))
   
-  ## ENTREE ##
-  # Un dossier contenant les trajectoires brutes, au format csv issu des colliers catlog, rangées dans des sous-dossiers au nom de leurs alpages
+  ## INPUT ##
+  # A folder containing the raw trajectories, in CSV format from the catlog collars, stored in subfolders named after their pastures
   raw_data_dir <- file.path(data_dir, paste0("Collars_", YEAR, "_raw"))
   
-  # Les alpage devant être traité
+  # The pastures to be processed
   alpages <- c("Alpage_demo")
   
-  ## SORTIE ##
+  ## OUTPUT ##
   
-  # Création du sous-dossier de sortie : GPS_simple_GPKG
+  # Creation of the output subfolder: GPS_simple_GPKG
   gps_output_dir <- file.path(output_dir, "GPS_simple_GPKG")
   if (!dir.exists(gps_output_dir)) {
     dir.create(gps_output_dir, recursive = TRUE)
   }
-  # Créeation du GPKG de sortie nommé : Donnees_brutes_9999_Alpage_demo_simplifiees.gpkg
+  # Creation of the output GPKG named: Raw_data_9999_Alpage_demo_simplified.gpkg
   output_file <- file.path(gps_output_dir, paste0("Raw_data_", YEAR, "_", alpages, "_simplified.gpkg"))
   
   
   ## CODE ##
   
   lapply(alpages, function(alpage) {
-    collar_dir <- file.path(raw_data_dir, alpage) # Chemin Dossier GPS contenant les fichier de l'alpage
-    collar_files <- list.files(collar_dir, full.names = TRUE) # Liste des CSV de ce dossier (les différents colliers)
+    collar_dir <- file.path(raw_data_dir, alpage) # GPS folder path containing the files of the pasture
+    collar_files <- list.files(collar_dir, full.names = TRUE) # List of CSV files in this folder (the different collars)
     lapply(collar_files, function(collar_f) {
-      collar_ID <- strsplit(basename(collar_f), split = "_")[[1]][1] # Extraction de l'id du collier (forme = C00_000000 -> C00)
-      load_catlog_data(collar_f) %>% # Cargement des données GPS brut
-        slice(which(row_number() %% 30 == 10)) %>% #Garde un point GPS tout les 30 mesures
-        mutate(ID = collar_ID, date = lubridate::format_ISO8601(date)) %>% # Convertir date et heure au bon format avec lubridate
-        vect(geom = c("lon", "lat"), crs = CRS_WSG84) # Transformation du dataframe en objet spacial (crs = WSG84)
-    }) %>% do.call(rbind, .) # Fusionne les données des différents colliers
+      collar_ID <- strsplit(basename(collar_f), split = "_")[[1]][1] # Extracting the collar ID (format = C00_000000 -> C00)
+      load_catlog_data(collar_f) %>% # Loading raw GPS data
+        slice(which(row_number() %% 30 == 10)) %>% # Keep one GPS point every 30 measurements
+        mutate(ID = collar_ID, date = lubridate::format_ISO8601(date)) %>% # Convert date and time to the correct format using lubridate
+        vect(geom = c("lon", "lat"), crs = CRS_WSG84) # Transform the dataframe into a spatial object (crs = WSG84)
+    }) %>% do.call(rbind, .) # Merge data from different collars
   }) %>% do.call(rbind, .) %>%
-    writeVector(filename = output_file, overwrite = TRUE) # Données au format GPKG
+    writeVector(filename = output_file, overwrite = TRUE) # Data in GPKG format
 }
+
 
 ##GOOD##
 
-#### 2.BJONERAAS FILTER CALIBRATION ####
+#### 2. BJONERAAS FILTER CALIBRATION ####
 #--------------------------------------#
 if (F) {
-  # Chargement des fonctions nécessaires
+  # Loading necessary functions
   source(file.path(functions_dir, "Functions_filtering.R"))
   source(file.path(functions_dir, "Functions_map_plot.R"))
   
-  ## ENTREES ##
-  # Un dossier contenant les trajectoires brutes, au format csv issu des colliers Catlog,
-  # rangées dans des sous-dossiers au nom de leurs alpages
-  raw_data_dir = file.path(data_dir,paste0("Colliers_",YEAR,"_brutes"))
+  ## INPUTS ##
+  # A folder containing the raw trajectories, in CSV format from Catlog collars,
+  # stored in subfolders named after their pastures
+  raw_data_dir = file.path(data_dir, paste0("Collars_", YEAR, "_raw"))
   
-  # Un data.frame contenant les dates de pose et de retrait des colliers
-  # Doit contenir les colonnes "alpage", "date_pose" et "date_retrait"
-  AIF <- file.path(raw_data_dir, paste0(YEAR,"_infos_alpages.csv"))
+  # A data.frame containing the collar deployment and removal dates
+  # Must contain the columns "alpage", "deployment_date" and "removal_date"
+  AIF <- file.path(raw_data_dir, paste0(YEAR, "_pasture_info.csv"))
   
-  # Vérification du format du fichier (souvent mal formaté, attention csv UTF8)
+  # Checking the file format (often misformatted, be careful with UTF-8 CSV)
   AIF_data <- read.csv(AIF, sep = ",", header = TRUE, row.names = NULL, check.names = FALSE, encoding = "UTF-8")
   
-  # L’alpage devant être traité
+  # The pasture to be processed
   alpage = "Alpage_demo"
   
-  ## SORTIE ##
-  # Création du sous-dossier pour stocker les résultats du filtre de Bjorneraas
-  filter_output_dir <- file.path(output_dir, "Filtre_de_Bjorneraas")
+  ## OUTPUT ##
+  # Creating a subfolder to store the results of the Bjorneraas filter
+  filter_output_dir <- file.path(output_dir, "Bjorneraas_filter")
   if (!dir.exists(filter_output_dir)) {
     dir.create(filter_output_dir, recursive = TRUE)
   }
-  # Fichier pdf de sortie pour visualisation du filtrage
+  # Output PDF file for filtering visualization
   pdf(file.path(filter_output_dir, paste0("Filtering_calibration_", YEAR, "_", alpage, ".pdf")), width = 9, height = 9)
   
-  
   ## CODE ##
-  # Liste des fichiers de données brutes pour l'alpage
+  # List of raw data files for the pasture
   files <- list.files(file.path(raw_data_dir, alpage), full.names = TRUE)
-  files <- files[1:3]  # Sélection des trois premiers fichiers (évite surcharge mémoire)
+  files <- files[1:3]  # Selecting the first three files (avoids memory overload)
   
-  # Chargement et concaténation des données des fichiers sélectionnés
+  # Loading and concatenating data from the selected files
   data <- do.call(rbind, lapply(files, function(file) { 
-    data <- load_catlog_data(file) # Chargement des fichiers CSV avec la fonction dédiée
-    data$ID <- file  # Ajout de l'identifiant du fichier pour tracer son origine
+    data <- load_catlog_data(file) # Loading CSV files with the dedicated function
+    data$ID <- file  # Adding the file identifier to trace its origin
     return(data) 
   }))
   
-  # Récupération des dates de pose et de retrait du collier
-  beg_date = as.POSIXct(get_alpage_info(alpage, AIF, "date_pose"), tz="GMT", format="%d/%m/%Y %H:%M")
-  end_date = as.POSIXct(get_alpage_info(alpage, AIF, "date_retrait"), tz="GMT", format="%d/%m/%Y %H:%M")
-  data = date_filter(data, beg_date, end_date) # Filtrage des données en fonction des dates de validité
+  # Retrieving collar deployment and removal dates
+  beg_date = as.POSIXct(get_alpage_info(alpage, AIF, "deployment_date"), tz="GMT", format="%d/%m/%Y %H:%M")
+  end_date = as.POSIXct(get_alpage_info(alpage, AIF, "removal_date"), tz="GMT", format="%d/%m/%Y %H:%M")
+  data = date_filter(data, beg_date, end_date) # Filtering data based on validity dates
   
-  # Projection des données en Lambert93 (EPSG:2154) à partir de WGS84 (EPSG:4326)
+  # Projecting data into Lambert93 (EPSG:2154) from WGS84 (EPSG:4326)
   data_xy <- data %>%
     terra::vect(crs="EPSG:4326") %>%
     terra::project("EPSG:2154") %>%
     as.data.frame(geom = "XY")
   
-  # Histogramme des intervalles de temps entre points GPS
+  # Histogram of time intervals between GPS points
   temps <- diff(data_xy$date)
   temps <- as.numeric(temps, units = "mins")
   hist(temps, nclass = 30)
   
-  # Histogramme des distances parcourues entre deux positions successives
+  # Histogram of distances traveled between two successive positions
   dist <- sqrt(diff(data_xy$x)^2+diff(data_xy$y)^2)
   h <- hist(dist, nclass = 30, xlab='Distance (m)', xaxt="n")
   
-  ### Test de différents filtres
-  # Définition des valeurs de test pour le filtre de Bjorneraas
-  medcrits = c(750, 500, 750) # Seuil médian des distances anormales
-  meancrits = c(500, 500, 350) # Seuil moyen des distances anormales
-  spikesps = c(1500, 1500, 1500) # Seuil de vitesse maximale (m/h)
-  spikecoss = c(-0.95, -0.95, -0.95) # Seuil de changement de direction (cosinus d’angle)
+  ### Testing different filters ###
+  # Defining test values for the Bjorneraas filter
+  medcrits = c(750, 500, 750) # Median threshold for abnormal distances
+  meancrits = c(500, 500, 350) # Mean threshold for abnormal distances
+  spikesps = c(1500, 1500, 1500) # Maximum speed threshold (m/h)
+  spikecoss = c(-0.95, -0.95, -0.95) # Direction change threshold (cosine of angle)
   
   for (i in 1:length(medcrits)) {
-    # Application du filtre de Bjorneraas avec chaque combinaison de paramètres
+    # Applying the Bjorneraas filter with each parameter combination
     trajectories <- position_filter(data, medcrit=medcrits[i], meancrit=meancrits[i], spikesp=spikesps[i], spikecos=spikecoss[i])
     
-    # Détermination des limites spatiales de la carte
+    # Determining spatial limits for the map
     minmax_xy = get_minmax_L93(trajectories[!(trajectories$R1error | trajectories$R2error ),], buffer = 100)
     
-    # Attribution des codes d'erreur pour visualisation
+    # Assigning error codes for visualization
     trajectories$errors = 1
     trajectories$errors[trajectories$R1error] = 2
     trajectories$errors[trajectories$R2error] = 3
     
-    # Définition de la palette de couleurs pour la carte
+    # Defining the color palette for the map
     pal <- c("#56B4E9", "red", "black")
     
-    # Affichage des trajectoires GPS avec erreurs détectées
+    # Displaying GPS trajectories with detected errors
     print(ggplot(trajectories, aes(x, y, col = errors)) +
             geom_path(size = 0.2) +
             geom_point(size = 0.3) +
@@ -156,7 +154,7 @@ if (F) {
             ggtitle(paste0("medcrit = ", medcrits[i], ", meancrit = ", meancrits[i], ", spikesp = ", spikesps[i], ", spikecos = ", spikecoss[i])) +
             scale_colour_gradientn(colors=pal, guide="legend", breaks = c(1, 2, 3), labels = c("OK", "R1error", "R2error")))
     
-    # Zoom sur les cinq premiers jours après la pose
+    # Zooming in on the first five days after deployment
     trajectories <- trajectories %>%
       filter(date < beg_date + 3600*24*5)
     print(ggplot(trajectories, aes(x, y, col = errors)) +
@@ -167,62 +165,63 @@ if (F) {
             scale_colour_gradientn(colors=pal, guide="legend", breaks = c(1, 2, 3), labels = c("OK", "R1error", "R2error")))
   }
   
-  # Fermeture du fichier PDF contenant les visualisations
+  # Closing the PDF file containing the visualizations
   dev.off()
 }
 
- 
+##GOOD##
 
 #### 3. FILTERING CATLOG DATA ####
 #--------------------------------#
 
 if (F) {
-  # Chargement des fonctions nécessaires
+  # Loading necessary functions
   source(file.path(functions_dir, "Functions_filtering.R"))
   
-  ## ENTREES ##
-  # Un dossier contenant les trajectoires brutes, au format csv issu des colliers catlog, rangées dans des sous-dossiers au nom de leurs alpages. Coordonnées en WSG84. Le nom des fichiers, sous la forme "ID_quelquechose.csv", sera utilisé pour déterminer l’ID du collier qui doit comporter 3 caractères.
-  raw_data_dir = file.path(data_dir,paste0("Colliers_",YEAR,"_brutes"))
-  # Un fichier contenant les informations sur chaque individu équipé, les dates de pose et de retrait des colliers, ainsi que la proportion de temps pour laquelle les colliers sont programmés pour être allumés (18h par jour = 0.75). Doit contenir les colonnes "Collier", "Alpage", "Espece", "Race", "date_pose", "date_retrait" et "proportion_jour_allume"
-  IIF = file.path(raw_data_dir, paste0(YEAR,"_colliers_poses.csv"))
+  ## INPUTS ##
+  # A folder containing the raw trajectories, in CSV format from Catlog collars, stored in subfolders named after their pastures. Coordinates are in WSG84. The file names, in the format "ID_something.csv", will be used to determine the collar ID, which must have 3 characters.
+  raw_data_dir = file.path(data_dir, paste0("Collars_", YEAR, "_raw"))
   
-  #Load and vérife data collier pose (format)
-  IFF_data <- read.csv(IIF, stringsAsFactors = FALSE, encoding = "UTF-8")
+  # A file containing information on each equipped individual, including the deployment and removal dates of the collars, as well as the proportion of time the collars are programmed to be active (18h per day = 0.75). Must contain the columns "Collier", "Alpage", "Espece", "Race", "date_pose", "date_retrait", and "proportion_jour_allume".
+  IIF = file.path(raw_data_dir, paste0(YEAR, "_collars_deployed.csv"))
   
-  # Les alpages à traiter
+  # Load and verify collar deployment data (format)
+  IIF_data <- read.csv(IIF, stringsAsFactors = FALSE, encoding = "UTF-8")
+  
+  # Pastures to be processed
   alpages = c("Alpage_demo")
   
-  ## SORTIES ##
-  filter_output_dir <- file.path(output_dir, "Filtre_de_Bjorneraas")
+  ## OUTPUTS ##
+  filter_output_dir <- file.path(output_dir, "Bjorneraas_filter")
   if (!dir.exists(filter_output_dir)) {
     dir.create(filter_output_dir, recursive = TRUE)
   }
   
-  # Un .RDS contenant les trajectoires filtrées (les nouvelles trajectoires sont ajoutées à la suite des trajectoires traitées précédemment). Coordonnées en Lambert93.
-  output_rds_file = file.path(filter_output_dir, paste0("Catlog_",YEAR,"_filtered_",alpages,".rds"))
-  # Un .csv contenant les performances des colliers (pourcentages de points éliminés à chaque étape, colliers défectueux...)
-  indicator_file = file.path(filter_output_dir, paste0(YEAR,"_filtering_",alpages,".csv"))
+  # An .RDS file containing the filtered trajectories (new trajectories are appended to previously processed trajectories). Coordinates are in Lambert93.
+  output_rds_file = file.path(filter_output_dir, paste0("Catlog_", YEAR, "_filtered_", alpages, ".rds"))
+  
+  # A .csv file containing collar performance metrics (percentages of points removed at each step, defective collars, etc.).
+  indicator_file = file.path(filter_output_dir, paste0(YEAR, "_filtering_", alpages, ".csv"))
   
   ## CODE ##
   
   for (alpage in alpages) {
-    print(paste("WORKING ON ALPAGE", alpage))
+    print(paste("WORKING ON PASTURE", alpage))
     collar_dir <- file.path(raw_data_dir, alpage)
-    collar_files <- list.files(collar_dir, pattern = ".csv", full.names = TRUE)
+    collar_file <- list.files(collar_dir, pattern = ".csv", full.names = TRUE)
     
     medcrit = get_alpage_info(alpage, AIF, "medcrit")
     meancrit = get_alpage_info(alpage, AIF, "meancrit")
     spikesp = get_alpage_info(alpage, AIF, "spikesp")
     spikecos = as.numeric(gsub(",", ".", get_alpage_info(alpage, AIF, "spikecos")))
-    print(paste0("Bjorneraas filter parameters: medcrit=",medcrit,", meancrit=", meancrit, ", spikesp=", spikesp, ", spikecos=", spikecos))
+    print(paste0("Bjorneraas filter parameters: medcrit=", medcrit, ", meancrit=", meancrit, ", spikesp=", spikesp, ", spikecos=", spikecos))
     print(collar_files)
     
-    
-    # Filtrage des trajectoires et calcul des indicateurs
+    # Filtering trajectories and calculating indicators
     indicators <- lapply(collar_files, function(collar) {
       filter_one_collar(
         load_catlog_data(collar),  
-        basename(collar),  # On passe uniquement le nom du fichier
+        basename(collar),  # Only pass the file name
         output_rds_file, alpage, beg_date, end_date, IIF,
         bjoneraas.medcrit = medcrit,
         bjoneraas.meancrit = meancrit,
@@ -233,17 +232,17 @@ if (F) {
       do.call(rbind, .)
     
     indicators_tot = indicators %>%
-      filter(worked_until_end == 1) %>% # to compute performance indicators at the alpage level, we remove defective collars
+      filter(worked_until_end == 1) %>% # To compute performance indicators at the pasture level, we remove defective collars
       add_row(name = paste("TOTAL", alpage), worked_until_end = sum(.$worked_until_end), nloc = NA,
               R1error = NA, R2error = NA,
-              error_perc = sum(.$nloc*.$error_perc)/sum(.$nloc), localisation_rate = mean(.$localisation_rate))
+              error_perc = sum(.$nloc * .$error_perc) / sum(.$nloc), localisation_rate = mean(.$localisation_rate))
     indicators = rbind(indicators, indicators_tot[nrow(indicators_tot),])
     
     write.table(indicators, file=indicator_file, append = T, sep=',', row.names=F, col.names=F)
   }
 }
 
-
+##GOOD##
 
 
 #### 4. HMM FITTING #### 
@@ -262,10 +261,10 @@ if (F) {
   
   # ENTREES
   # Un .RDS contenant les trajectoires filtrées
-  input_rds_file <- file.path(output_dir, "Filtre_de_Bjorneraas", paste0("Catlog_", YEAR, "_filtered_", alpage, ".rds"))
+  input_rds_file <- file.path(output_dir, "Bjorneraas_filter", paste0("Catlog_", YEAR, "_filtered_", alpage, ".rds"))
   
   # Un data.frame contenant la correspondance entre colliers et alpages. Doit contenir les colonnes  "ID", "Alpage" et "Periode d’echantillonnage"
-  individual_info_file <- file.path(data_dir, paste0("Colliers_", YEAR, "_brutes"), paste0(YEAR, "_colliers_poses.csv"))
+  individual_info_file <- file.path(data_dir, paste0("Collars_", YEAR, "_raw"), paste0(YEAR, "_collars_deployed.csv"))
   individual_info_file_data <- read.csv(individual_info_file, stringsAsFactors = FALSE, encoding = "UTF-8")
   # Les alpages à traiter
   alpages = ALPAGES
@@ -273,12 +272,12 @@ if (F) {
   # SORTIES
   
   # Création du sous-dossier pour stocker les résultats du filtre de Bjorneraas
-  filter_output_dir <- file.path(output_dir, "HMM_comportement")
+  filter_output_dir <- file.path(output_dir, "HMM_behavior")
   if (!dir.exists(filter_output_dir)) {
     dir.create(filter_output_dir, recursive = TRUE)
   }
   # Un .RDS contenant les trajectoires catégorisées par comportement (les nouvelles trajectoires sont ajoutées à la suite des trajectoires traitées précédemment)
-  output_rds_file = file.path(output_dir, "HMM_comportement", paste0("Catlog_",YEAR,"_",alpage,"_viterbi.rds"))
+  output_rds_file = file.path(output_dir, "HMM_behavior", paste0("Catlog_",YEAR,"_",alpage,"_viterbi.rds"))
   
   ### LOADING DATA FOR ANALYSES
   data = readRDS(input_rds_file)
