@@ -27,7 +27,7 @@ if (FALSE) {  # Mettre TRUE pour exécuter
   
   ## ENTREE ##
   # Un dossier contenant les trajectoires brutes, au format csv issu des colliers catlog, rangées dans des sous-dossiers au nom de leurs alpages
-  raw_data_dir <- file.path(data_dir, paste0("Colliers_", YEAR, "_brutes"))
+  raw_data_dir <- file.path(data_dir, paste0("Collars_", YEAR, "_raw"))
   
   # Les alpage devant être traité
   alpages <- c("Alpage_demo")
@@ -40,7 +40,7 @@ if (FALSE) {  # Mettre TRUE pour exécuter
     dir.create(gps_output_dir, recursive = TRUE)
   }
   # Créeation du GPKG de sortie nommé : Donnees_brutes_9999_Alpage_demo_simplifiees.gpkg
-  output_file <- file.path(gps_output_dir, paste0("Donnees_brutes_", YEAR, "_", alpages, "_simplifiees.gpkg"))
+  output_file <- file.path(gps_output_dir, paste0("Raw_data_", YEAR, "_", alpages, "_simplified.gpkg"))
   
   
   ## CODE ##
@@ -59,6 +59,7 @@ if (FALSE) {  # Mettre TRUE pour exécuter
     writeVector(filename = output_file, overwrite = TRUE) # Données au format GPKG
 }
 
+##GOOD##
 
 #### 2.BJONERAAS FILTER CALIBRATION ####
 #--------------------------------------#
