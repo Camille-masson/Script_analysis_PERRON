@@ -31,7 +31,6 @@ geometry: margin=1in
 </style>
 
 ## Introduction
-# Introduction
 
 This Git project aims to share the script written and used by PERRON Rémy for the preparation of the article:  
 *"Fine-scale tracking of sheep grazing in mountain pastures: frugal solution and relevant indicators for improved ecosystem and practice management."*  
@@ -156,7 +155,7 @@ This table compiles the main information related to the pasture. In the demonstr
 | spikecos                  | Spike angle threshold; *Bjørneraas parameters*                  |
 
 
-#### Evolution of Herd Size: `AAAA_tailles_troupeaux.csv`
+#### Evolution of Herd Size: `AAAA_herd_sizes.csv`
 
 This table presents the evolution of herd size throughout the alpine grazing season.
 
@@ -174,7 +173,7 @@ In this case, it is necessary to record the evolution of herd size for each vari
 | herd_total_size           | Total herd size at this date                                    |
 
 
-#### Individual Information on Collars and Animals: `AAAA_colliers_poses.csv`
+#### Individual Information on Collars and Animals: `AAAA_collars_deployed.csv`
 
 This table contains information related to the individuals on which the collars were placed, such as species, sampling period, proportion of time the collar was active, as well as deployment and removal dates for each individual.
 
