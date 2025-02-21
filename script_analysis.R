@@ -250,41 +250,42 @@ if (F) {
 if (F) {
   library(snow)
   library(stats)
-  # Movement modelling packages
+  # Movement modeling packages
   library(momentuHMM)
   library(adehabitatLT)
   library(adehabitatHR)
-  # Libraries RMarkdown
+  # RMarkdown libraries
   library(knitr)
   library(rmarkdown)
   source(file.path(functions_dir, "Functions_HMM_fitting.R"))
   
-  # ENTREES
-  # Un .RDS contenant les trajectoires filtrées
+  ## INPUTS ##
+  # An .RDS file containing the filtered trajectories
   input_rds_file <- file.path(output_dir, "Bjorneraas_filter", paste0("Catlog_", YEAR, "_filtered_", alpage, ".rds"))
   
-  # Un data.frame contenant la correspondance entre colliers et alpages. Doit contenir les colonnes  "ID", "Alpage" et "Periode d’echantillonnage"
+  # A data.frame containing the correspondence between collars and pastures. Must contain the columns "ID", "Alpage", and "Sampling Period".
   individual_info_file <- file.path(data_dir, paste0("Collars_", YEAR, "_raw"), paste0(YEAR, "_collars_deployed.csv"))
   individual_info_file_data <- read.csv(individual_info_file, stringsAsFactors = FALSE, encoding = "UTF-8")
-  # Les alpages à traiter
+  
+  # Pastures to be processed
   alpages = ALPAGES
   
-  # SORTIES
-  
-  # Création du sous-dossier pour stocker les résultats du filtre de Bjorneraas
+  ## OUTPUTS ##
+  # Creating the subfolder to store the HMM behavior results
   filter_output_dir <- file.path(output_dir, "HMM_behavior")
   if (!dir.exists(filter_output_dir)) {
     dir.create(filter_output_dir, recursive = TRUE)
   }
-  # Un .RDS contenant les trajectoires catégorisées par comportement (les nouvelles trajectoires sont ajoutées à la suite des trajectoires traitées précédemment)
-  output_rds_file = file.path(output_dir, "HMM_behavior", paste0("Catlog_",YEAR,"_",alpage,"_viterbi.rds"))
   
-  ### LOADING DATA FOR ANALYSES
+  # An .RDS file containing the trajectories categorized by behavior (new trajectories are appended to previously processed ones)
+  output_rds_file = file.path(output_dir, "HMM_behavior", paste0("Catlog_", YEAR, "_", alpage, "_viterbi.rds"))
+  
+  ### LOADING DATA FOR ANALYSIS ###
   data = readRDS(input_rds_file)
   data = data[data$species == "brebis",]
   data = data[data$alpage %in% alpages,]
   
-  ### HMM FIT
+  ### HMM FIT ###
   run_parameters = list(
     # Model
     model = "HMM",
@@ -300,8 +301,8 @@ if (F) {
     dist = list(step = "gamma", angle = "vm"),
     # Design matrices to be used for the probability distribution parameters of each data stream
     DM = list(angle=list(mean = ~1, concentration = ~1)),
-    # Covariants formula
-    covariants = ~cos(hour*3.141593/12), # ~1 if no covariants used
+    # Covariate formula
+    covariants = ~cos(hour * 3.141593 / 12), # ~1 if no covariates are used
     
     # 3-state HMM
     Par0 = list(step = c(10, 25, 50, 10, 15, 40), angle = c(tan(pi/2), tan(0/2), tan(0/2), log(0.5), log(0.5), log(3))),
@@ -312,14 +313,13 @@ if (F) {
   startTime = Sys.time()
   results = par_HMM_fit_test(data, run_parameters, ncores = ncores, individual_info_file, sampling_period = 120, output_dir)
   endTime = Sys.time()
-  # Verifié la connéxion intenert 
   
+  # Check internet connection
   
-  ##SUMMARIZE MODEL FITTING BY ALPAGE in rmarkdown PDFs (A revoir)
+  ## SUMMARIZE MODEL FITTING BY PASTURE in rmarkdown PDFs (To be reviewed)
   parameters_df <- parameters_to_data.frame(run_parameters)
   
-  
-  # A revoir !
+  # To be reviewed!
   individual_IDs <- sapply(results, function(hmm) hmm$data$ID[1])
   individual_alpages <- get_individual_alpage(individual_IDs, individual_info_file)
   for (alpage in unique(individual_alpages)) {
@@ -329,15 +329,15 @@ if (F) {
     
     runs_to_pdf(alpage, parameters_df, results_df, data_alpage , paste(round(difftime(endTime, startTime, units='mins'),2), "min"), output_dir, paste0(output_dir,"1 HMM Fit/HMM_fitting_",alpage,".pdf"), show_performance_indicators = FALSE)
   }
-  # A revoir ! : fonction Functions/HMM_fit_template.Rmd does not exist
+  # To be reviewed! : function Functions/HMM_fit_template.Rmd does not exist
   
-  ### SAVE RESULTING TRAJECTORIES
+  ### SAVE RESULTING TRAJECTORIES ###
   data_hmm <- do.call("rbind", lapply(results, function(result) result$data))
   viterbi_trajectory_to_rds(data_hmm, output_rds_file, individual_info_file)
 }
 
 
-
+##GOOD##
 
 #### 5. FLOCK STOCKING RATE (charge) BY DAY AND BY STATE ####
 #-------------------------------------------------------------#
