@@ -114,9 +114,9 @@ filter_one_collar <- function(traject, collar_file, output_rds_file, alpage_name
 
     collar_ID = strsplit(collar_file, split = "_")[[1]][1]
 
-    beg_date = as.POSIXct(get_individual_info(collar_ID, individual_info_file, "date_pose"), tz="GMT", format="%d/%m/%Y %H:%M:%S")
-    end_date = as.POSIXct(get_individual_info(collar_ID, individual_info_file, "date_retrait"), tz="GMT", format="%d/%m/%Y %H:%M:%S")
-    day_prop = as.numeric(gsub(",", ".", get_individual_info(collar_ID, individual_info_file, "proportion_jour_allume"))) # proportion of day with collar switched on
+    beg_date = as.POSIXct(get_individual_info(collar_ID, individual_info_file, "deployment_date"), tz="GMT", format="%d/%m/%Y %H:%M:%S")
+    end_date = as.POSIXct(get_individual_info(collar_ID, individual_info_file, "removal_date"), tz="GMT", format="%d/%m/%Y %H:%M:%S")
+    day_prop = as.numeric(gsub(",", ".", get_individual_info(collar_ID, individual_info_file, "Fraction_day_active"))) # proportion of day with collar switched on
 
     n_loc_theory = as.numeric(difftime(end_date, beg_date, units = "secs")) * day_prop / sampling_period
     print(paste("Working on", collar_ID, "from", beg_date, "to", end_date))
@@ -142,7 +142,7 @@ filter_one_collar <- function(traject, collar_file, output_rds_file, alpage_name
     traject$alpage <- alpage_name
     traject$R1error <- NULL
     traject$R2error <- NULL
-    traject$species <- get_individual_info(collar_ID, individual_info_file, "Espece")
+    traject$species <- get_individual_info(collar_ID, individual_info_file, "Species")
     traject$race <- get_individual_info(collar_ID, individual_info_file, "Race")
 
     colnames(traject)[4] <- "time"

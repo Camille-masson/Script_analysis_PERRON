@@ -286,10 +286,10 @@ par_HMM_fit_test <- function(data, run_parameters, ncores, individual_info_file,
                        function(ID) {
                          alpage = get_individual_alpage(ID, individual_info_file)
                          
-                         # 🔍 Debugging : Vérifier si l'alpage est bien "alpage_demo"
-                         print(paste0("🔍 ID: ", ID, " - Alpage récupéré : ", alpage))
+                         #  Debugging : Vérifier si l'alpage est bien "alpage_demo"
+                         print(paste0(" ID: ", ID, " - Alpage récupéré : ", alpage))
                          
-                         sampling_period = get_individual_info(ID, individual_info_file, "Periode_echantillonnage")
+                         sampling_period = get_individual_info(ID, individual_info_file, "Periode_sampling")
                          
                          return(hmm_fit(data[data$ID==ID,], run_parameters, paste0(output_dir, alpage, "/"), sampling_period))
                        }
@@ -558,9 +558,9 @@ viterbi_trajectory_to_rds  <- function(data_hmm, output_file, individual_info_fi
     data_save$state = stateNames[data_save$state]
     data_save <- data_save[!is.na(data_save$x),]
 
-    collar_indexes = as.numeric(sapply(data_save$ID, function(id) which(individual_info$Collier==id)))
-    data_save$alpage <- individual_info$Alpage[collar_indexes]
-    data_save$species <- individual_info$Espece[collar_indexes]
+    collar_indexes = as.numeric(sapply(data_save$ID, function(id) which(individual_info$Collar==id)))
+    data_save$alpage <- individual_info$pasture[collar_indexes]
+    data_save$species <- individual_info$Species[collar_indexes]
     data_save$race <- individual_info$Race[collar_indexes]
 
     # Sauvegarde en RDS

@@ -339,7 +339,7 @@ if (F) {
 
 ##GOOD##
 
-#### 5. FLOCK STOCKING RATE (charge) BY DAY AND BY STATE ####
+#### 5. FLOCK STOCKING RATE (Charge) BY DAY AND BY STATE ####
 #-------------------------------------------------------------#
 library(adehabitatHR)
 library(data.table)
@@ -347,51 +347,50 @@ library(snow)
 source(file.path(functions_dir, "Functions_map_plot.R"))
 source(file.path(functions_dir, "Functions_flock_density.R"))
 
-# ENTREES
-# Un .RDS contenant les trajectoires catégorisées par comportement
-input_rds_file <- file.path(output_dir, "HMM_comportement",  paste0("Catlog_", YEAR, "_", alpage, "_viterbi.rds"))
+## INPUTS ##
+# An .RDS file containing the trajectories categorized by behavior
+input_rds_file <- file.path(output_dir, "HMM_behavior", paste0("Catlog_", YEAR, "_", alpage, "_viterbi.rds"))
 
-# Un data.frame contenant les tailles de troupeaux et les évolutions des tailles en fonction de la date
-flock_size_file <- file.path(raw_data_dir, paste0(YEAR, "_tailles_troupeaux.csv"))
+# A data.frame containing flock sizes and their changes over time based on date
+flock_size_file <- file.path(raw_data_dir, paste0(YEAR, "_herd_sizes.csv"))
 flock_size_file_data <- read.csv(flock_size_file, stringsAsFactors = FALSE, encoding = "UTF-8")
-# Les alpages à traiter
+
+# Pastures to be processed
 alpages <- ALPAGES
 
-# SORTIES
-# Dossier de sortie
-save_dir <- file.path(output_dir, "Chargements_calcules")
+## OUTPUTS ##
+# Output folder
+save_dir <- file.path(output_dir, "Flock_stocking_rate")
 
-# Un .RDS par alpage contenant les charges journalières par comportement
+# An .RDS per pasture containing daily stocking rates per behavior state
 state_daily_rds_prefix <- paste0("by_day_and_state_", YEAR, "_")
-# Un .RDS par alpage contenant les charges journalières
+# An .RDS per pasture containing daily stocking rates
 daily_rds_prefix <- paste0("by_day_", YEAR, "_")
-# Un .RDS par alpage contenant les charges par comportement
+# An .RDS per pasture containing stocking rates by behavior state
 state_rds_prefix <- paste0("by_state_", YEAR, "_")
-# Un .RDS par alpage contenant la charge totale sur toute la saison
+# An .RDS per pasture containing total stocking rate over the entire season
 total_rds_prefix <- paste0("total_", YEAR, "_")
 
-h <- 25 # Distance caractéristique pour calculer le chargement
+h <- 25 # Characteristic distance for calculating stocking rate
 
 for (alpage in alpages) {
   flock_sizes <- get_flock_size_through_time(alpage, flock_size_file)
-  prop_time_collar_on <- get_alpage_info(alpage, AIF, "proportion_jour_allume")
+  prop_time_collar_on <- get_alpage_info(alpage, AIF, "proportion_active_day")
   
-  # Chargement des données filtrées pour l'alpage
+  # Load filtered data for the pasture
   data <- readRDS(input_rds_file)
   data <- data[data$alpage == alpage,]
   
-  # Chargement du raster de phénologie avec le bon chemin
+  # Load the phenology raster with the correct path
   raster_file <- file.path(raster_dir, paste0("ndvis_", YEAR, "_", alpage, "_pheno_metrics.tif"))
   pheno_t0 <- get_raster_cropped_L93(raster_file, get_minmax_L93(data, 100), reproject = TRUE, band = 2, as = "SpatialPixelDataFrame")
   
-  # Définition du dossier de stockage spécifique à l'alpage
+  # Define the storage folder specific to the pasture
   alpage_save_dir <- file.path(save_dir, paste0(alpage, "_", YEAR))
   if (!dir.exists(alpage_save_dir)) dir.create(alpage_save_dir, recursive = TRUE)
   
- 
-  # BY day and by state 
-  
-    flock_load_by_day_and_state_to_rds_kernelbb_test_10(
+  ## BY DAY AND BY STATE ##
+  flock_load_by_day_and_state_to_rds_kernelbb_test_10(
     data, 
     pheno_t0, 
     alpage_save_dir,  
@@ -401,18 +400,16 @@ for (alpage in alpages) {
   )
   
   gc()
-    
-  #Fusion des fichier indiv
+  
+  # Merge individual files
   merged_file <- flock_merge_rds_files(alpage_save_dir, state_daily_rds_prefix)
   
-  
   rm(data)
-  
   
   charge <- readRDS(file.path(alpage_save_dir, paste0(state_daily_rds_prefix, alpage, ".rds")))
   unique(charge$state)
   
-  # By state
+  ## BY STATE ##
   charge_state <- charge %>%
     group_by(x, y, state) %>%
     summarise(Charge = sum(Charge, na.rm = TRUE), .groups = 'drop') %>%
@@ -420,7 +417,7 @@ for (alpage in alpages) {
   saveRDS(charge_state, file.path(alpage_save_dir, paste0(state_rds_prefix, alpage, ".rds")))
   rm(charge_state)
   
-  # By day
+  ## BY DAY ##
   charge_day <- lapply(unique(charge$day), function(d) {
     charge %>%
       filter(day == d) %>%
@@ -431,7 +428,7 @@ for (alpage in alpages) {
   saveRDS(charge_day, file.path(alpage_save_dir, paste0(daily_rds_prefix, alpage, ".rds")))
   rm(charge_day)
   
-  # Total
+  ## TOTAL STOCKING RATE ##
   charge_tot <- charge %>%
     group_by(x, y) %>%
     summarise(Charge = sum(Charge, na.rm = TRUE), .groups = 'drop') %>%
@@ -441,112 +438,4 @@ for (alpage in alpages) {
   
   rm(charge)
 }
-
-
-
-
-
-
-#### !!!!! EN TRAVAUX !!!!! #####
-
-### 4.2. IF NEEDED: READAPT FLOCK STOCKING RATE TO NEW FLOCK SIZES ###
-#--------------------------------------------------------------------#
-if (F) {
-  # Permet de recalculer un chargement déjà calculer pour l’adapter à une nouvelle estimation des évolutions de la taille
-  # du troupeau, sans pour autant relancer le lourd calcul du home-range.
-  source("Functions/Functions_flock_density.R")
-  # ENTREES
-  # Un data.frame contenant les tailles de troupeaux, le pourcentage de temps d’allumage des colliers sur une journée
-  # et le chemin de la carte de phénologie phenOTB (dont la grille sert de base à l’analyse raster).
-  # Un data.frame contenant les évolutions des tailles de troupeaux en fonction de la date (une ligne par).
-  # Doit contenir les colonnes  "alpage", "date_debut_periode", "taille_totale_troupeau"
-  flock_size_file <- paste0(data_dir,YEAR,"_tailles_troupeaux.csv")
-  # Les alpages à traiter
-  alpages = ALPAGES
-  alpages = c("Viso")
-  
-  # SORTIES
-  # Dossier de sortie
-  save_dir = paste0(data_dir,"Chargements_calcules/")
-  # Un .RDS par alpage contenant les charges journalières par comportement
-  state_daily_rds_prefix = paste0("by_day_and_state_",YEAR,"_")
-  # Un .RDS par alpage contenant les charges journalières
-  daily_rds_prefix = paste0("by_day_",YEAR,"_")
-  # Un .RDS par alpage contenant les charges par comportement
-  state_rds_prefix = paste0("by_state_",YEAR,"_")
-  # Un .RDS par alpage contenant la charge totale sur toute la saison
-  total_rds_prefix = paste0("total_",YEAR,"_")
-  
-  
-  h <- 25 # Distance caractéristique pour calculer le chargement, écart-type de la gaussienne 2D sur laquelle chaque point est "dilué"
-  
-  for (alpage in alpages) {
-    flock_sizes <- get_flock_size_through_time(alpage, flock_size_file)
-    prop_time_collar_on <- get_alpage_info(alpage, AIF, "proportion_jour_allume")
-    
-    charge <- readRDS(paste0(save_dir,state_daily_rds_prefix,alpage,"_NEW.rds"))
-    s2 = sum(charge$Charge)/100
-    s2
-    charge <- readRDS(paste0(save_dir,state_daily_rds_prefix,alpage,".rds"))
-    s1 = sum(charge$Charge)/100
-    s1
-    
-    sum(flock_sizes[1:284])*0.75
-    
-    # Recompute stocking rates by state and day
-    charge <- charge %>%
-      group_by(day) %>%
-      group_modify(function(charge_init, d) {
-        recompute_daily_flock_load_by_state(charge_init, flock_sizes[as.numeric(d)], prop_time_collar_on)},
-        .keep = FALSE ) %>%
-      ungroup() %>%
-      as.data.frame()
-    save_file <- paste0(save_dir,state_daily_rds_prefix,alpage,"_NEW.rds")
-    saveRDS(charge, file = save_file)
-    
-    # By state
-    charge_state <- charge %>%
-      group_by(x,y,state) %>%
-      summarise(Charge = sum(Charge, na.rm = T), .groups = 'drop') %>%
-      as.data.frame()
-    save_file <- paste0(save_dir,state_rds_prefix,alpage,".rds")
-    saveRDS(charge_state, file = save_file)
-    rm(charge_state)
-    
-    # By day
-    charge_day <- charge %>%
-      group_by(x,y,day) %>%
-      summarise(Charge = sum(Charge, na.rm = T), .groups = 'drop') %>%
-      as.data.frame()
-    save_file <- paste0(save_dir,daily_rds_prefix,alpage,".rds")
-    saveRDS(charge_day, file = save_file)
-    rm(charge_day)
-    # Alternative if the data.frame is too large :
-    # charge_day = lapply(unique(charge$day), function(d) {charge  %>%
-    #                                                         filter(day == d) %>%
-    #                                                         group_by(x,y,day) %>%
-    #                                                         summarise(Charge = sum(Charge, na.rm = T), .groups = 'drop') } )
-    # charge_day = as.data.frame(rbindlist(charge_day, use.names=TRUE))
-    # save_file <- paste0(save_dir,daily_rds_prefix,alpage,".rds")
-    # saveRDS(charge_day, file = save_file)
-    # rm(charge_day)
-    
-    # Total
-    charge_tot <- charge %>%
-      group_by(x,y) %>%
-      summarise(Charge = sum(Charge, na.rm = T), .groups = 'drop') %>%
-      as.data.frame()
-    save_file <- paste0(save_dir,total_rds_prefix,alpage,".rds")
-    saveRDS(charge_tot, file = save_file)
-    rm(charge_tot)
-    
-    rm(charge)
-  }
-}
-
-
-
-
-
-
 

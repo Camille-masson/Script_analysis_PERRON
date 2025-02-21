@@ -1,6 +1,6 @@
 ### CONFIGURATION DU PROJET ###
 
-# Définition des chemins 
+#Définition des chemins 
 root_dir <- getwd()  # Récupère le chemin du projet automatiquement
 data_dir <- file.path(root_dir, "data")
 output_dir <- file.path(root_dir, "outputs")

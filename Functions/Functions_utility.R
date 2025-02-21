@@ -54,7 +54,7 @@ save_append <- function(data_save, file_path) {
 
 get_individual_info <- function(ID, individual_info_file, col_name) {
     individual_info <- read.csv(individual_info_file, header=TRUE, sep=",")
-    info <- individual_info[as.numeric(sapply(ID, function(id) which(individual_info$Collier==id))), col_name]
+    info <- individual_info[as.numeric(sapply(ID, function(id) which(individual_info$Collar==id))), col_name]
 
     return(info)
 }
