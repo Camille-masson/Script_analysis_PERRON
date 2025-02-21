@@ -65,7 +65,7 @@ get_individual_alpage <- function(ID, individual_info_file) {
 
 get_alpage_info  <- function(alpage, alpage_info_file, col_name) {
     alpage_infos <- read.csv(alpage_info_file, header=TRUE, sep=",")
-    info<- alpage_infos[alpage_infos$alpage==alpage, col_name]
+    info<- alpage_infos[alpage_infos$pasture==alpage, col_name]
 
     return(info)
 }
