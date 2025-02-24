@@ -473,43 +473,11 @@ flock_load_by_day_and_state_to_rds_kernelbb_test_11 <- function(data, grid, save
 
 
 flock_merge_rds_files <- function(save_dir, state_daily_rds_prefix) {
-  library(data.table)
-  library(stringr)
-  
-  all_files <- list.files(save_dir, pattern = paste0("^", state_daily_rds_prefix), full.names = TRUE)
-  
-  if (length(all_files) == 0) {
-    return(NULL)
-  }
-  
-  rds_list <- lapply(all_files, function(file) {
-    data <- readRDS(file)
-    
-    if (!"state" %in% colnames(data)) {
-      state_detected <- str_extract(basename(file), "_(Repos|Paturage|Deplacement)_")
-      state_detected <- gsub("_", "", state_detected)
-      data$state <- state_detected
-    }
-    return(data)
-  })
-  
-  charge_final <- as.data.frame(rbindlist(rds_list, use.names = TRUE, fill = TRUE))
-  
-  output_file <- file.path(save_dir, paste0(state_daily_rds_prefix, "_merged.rds"))
-  saveRDS(charge_final, output_file)
-  
-  file.remove(all_files)
-  
-  return(output_file)
-}
-
-flock_merge_rds_files_0 <- function(save_dir, state_daily_rds_prefix) {
   # Lister tous les fichiers RDS générés
   all_files <- list.files(save_dir, pattern = paste0("^", state_daily_rds_prefix), full.names = TRUE)
   
   # Vérifier s'il y a des fichiers à fusionner
   if (length(all_files) == 0) {
-    print("Aucun fichier trouvé pour la fusion.")
     return(NULL)
   }
   
@@ -519,53 +487,6 @@ flock_merge_rds_files_0 <- function(save_dir, state_daily_rds_prefix) {
     
     # Vérification : Si la colonne state est manquante ou mal définie, on la rajoute
     if (!"state" %in% colnames(data)) {
-      print(paste("Problème détecté : fichier sans colonne 'state'", file))
-      # Extraire le nom du fichier pour retrouver l'état (ex: "_Repos_" ou "_Paturage_")
-      state_detected <- str_extract(basename(file), "_(Repos|Paturage|Deplacement)_")
-      state_detected <- gsub("_", "", state_detected)  # Nettoyage du nom
-      data$state <- state_detected
-    }
-    
-    return(data)
-  })
-  
-  # Fusionner tous les fichiers en une seule data.frame
-  charge_final <- as.data.frame(rbindlist(rds_list, use.names = TRUE, fill = TRUE))
-  
-  # Vérifier que toutes les valeurs state sont bien présentes
-  print("🔍 Vérification des valeurs uniques de la colonne 'state' après fusion :")
-  print(unique(charge_final$state))
-  
-  # Sauvegarde du fichier final
-  output_file <- file.path(save_dir, paste0(state_daily_rds_prefix,alpage, ".rds"))
-  saveRDS(charge_final, output_file)
-  
-  print(paste("✅ Fusion réussie ! Fichier final :", output_file))
-  
-  return(output_file)
-}
-
-
-
-flock_merge_rds_files_2 <- function(save_dir, state_daily_rds_prefix) {
-  # Lister tous les fichiers RDS générés
-  all_files <- list.files(save_dir, pattern = paste0("^", state_daily_rds_prefix), full.names = TRUE)
-  
-  # Vérifier s'il y a des fichiers à fusionner
-  if (length(all_files) == 0) {
-    print("Aucun fichier trouvé pour la fusion.")
-    return(NULL)
-  }
-  
-  # Charger tous les fichiers RDS
-  rds_list <- lapply(all_files, function(file) {
-    data <- readRDS(file)
-    
-    # Vérification : Si la colonne state est manquante ou mal définie, on la rajoute
-    if (!"state" %in% colnames(data)) {
-      print(paste("Problème détecté : fichier sans colonne 'state'", file))
-      
-      # Extraire le nom du fichier pour retrouver l'état (ex: "_Repos_" ou "_Paturage_")
       state_detected <- stringr::str_extract(basename(file), "_(Repos|Paturage|Deplacement)_")
       state_detected <- gsub("_", "", state_detected)  # Nettoyage du nom
       data$state <- state_detected
@@ -576,62 +497,63 @@ flock_merge_rds_files_2 <- function(save_dir, state_daily_rds_prefix) {
   
   # Fusionner tous les fichiers en une seule data.frame
   charge_final <- data.table::rbindlist(rds_list, use.names = TRUE, fill = TRUE)
-  
-  # Vérifier que toutes les valeurs state sont bien présentes
-  print("🔍 Vérification des valeurs uniques de la colonne 'state' après fusion :")
-  print(unique(charge_final$state))
-  
-  # Sauvegarde du fichier final
-  output_file <- file.path(save_dir, paste0(state_daily_rds_prefix,alpage, ".rds"))
-  saveRDS(charge_final, output_file)
-  
-  print(paste("✅ Fusion réussie ! Fichier final :", output_file))
-  
-  # Suppression des fichiers intermédiaires
-  file.remove(all_files)
-  print("🗑️  Fichiers intermédiaires supprimés avec succès.")
-  
-  return(output_file)
-}
-
-
-
-flock_merge_rds_files_3 <- function(save_dir, state_daily_rds_prefix) {
-  # Lister tous les fichiers RDS générés
-  all_files <- list.files(save_dir, pattern = paste0("^", state_daily_rds_prefix), full.names = TRUE)
-  
-  # Vérifier s'il y a des fichiers à fusionner
-  if (length(all_files) == 0) {
-    print("Aucun fichier trouvé pour la fusion.")
-    return(NULL)
-  }
-  
-  # Charger tous les fichiers RDS
-  rds_list <- lapply(all_files, function(file) {
-    data <- readRDS(file)
-    
-    # Vérification : Si la colonne state est manquante ou mal définie, on la rajoute
-    if (!"state" %in% colnames(data)) {
-      print(paste("Problème détecté : fichier sans colonne 'state'", file))
-      
-      # Extraire le nom du fichier pour retrouver l'état (ex: "_Repos_" ou "_Paturage_")
-      state_detected <- stringr::str_extract(basename(file), "_(Repos|Paturage|Deplacement)_")
-      state_detected <- gsub("_", "", state_detected)  # Nettoyage du nom
-      data$state <- state_detected
-    }
-    
-    return(data)
-  })
-  
-  # Fusionner tous les fichiers en une seule data.frame
-  charge_final <- data.table::rbindlist(rds_list, use.names = TRUE, fill = TRUE)
-  
-  # Vérifier que toutes les valeurs state sont bien présentes
-  print("🔍 Vérification des valeurs uniques de la colonne 'state' après fusion :")
-  print(unique(charge_final$state))
   
   # Sauvegarde du fichier final
   output_file <- file.path(save_dir, paste0(state_daily_rds_prefix, alpage, ".rds"))
+  saveRDS(charge_final, output_file)
+  
+  # Suppression des fichiers intermédiaires
+  file.remove(all_files)
+  
+  return(output_file)
+}
+
+
+
+
+
+
+
+
+
+
+
+flock_merge_rds_files_1 <- function(save_dir, state_daily_rds_prefix) {
+  # Lister tous les fichiers RDS générés
+  all_files <- list.files(save_dir, pattern = paste0("^", state_daily_rds_prefix), full.names = TRUE)
+  
+  # Vérifier s'il y a des fichiers à fusionner
+  if (length(all_files) == 0) {
+    print("Aucun fichier trouvé pour la fusion.")
+    return(NULL)
+  }
+  
+  # Charger tous les fichiers RDS
+  rds_list <- lapply(all_files, function(file) {
+    data <- readRDS(file)
+    
+    # Vérification : Si la colonne state est manquante ou mal définie, on la rajoute
+    if (!"state" %in% colnames(data)) {
+      print(paste("Problème détecté : fichier sans colonne 'state'", file))
+      
+      # Extraire le nom du fichier pour retrouver l'état (ex: "_Repos_" ou "_Paturage_")
+      state_detected <- stringr::str_extract(basename(file), "_(Repos|Paturage|Deplacement)_")
+      state_detected <- gsub("_", "", state_detected)  # Nettoyage du nom
+      data$state <- state_detected
+    }
+    
+    return(data)
+  })
+  
+  # Fusionner tous les fichiers en une seule data.frame
+  charge_final <- data.table::rbindlist(rds_list, use.names = TRUE, fill = TRUE)
+  
+  # Vérifier que toutes les valeurs state sont bien présentes
+  print("🔍 Vérification des valeurs uniques de la colonne 'state' après fusion :")
+  print(unique(charge_final$state))
+  
+  # Sauvegarde du fichier final
+  output_file <- file.path(save_dir, paste0(state_daily_rds_prefix,alpage, ".rds"))
   saveRDS(charge_final, output_file)
   
   print(paste("✅ Fusion réussie ! Fichier final :", output_file))
