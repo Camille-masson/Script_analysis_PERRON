@@ -299,268 +299,6 @@ recompute_daily_flock_load_by_state <- function(charge_d, flock_size_d, prop_tim
 }
 
 
-flock_load_by_day_and_state_to_rds_kernelbb_test <- function(data, grid, save_dir, save_rds_name, flock_sizes, prop_time_collar_on) {
-  data$day <- yday(data$time)
-  
-  # Supprime le fichier existant s'il y en a un
-  output_file <- file.path(save_dir, basename(save_rds_name))
-  if (file.exists(output_file)) {
-    file.remove(output_file)
-  }
-  
-  Tmax = 42  # Max gap en minutes
-  hmin = 15
-  Ds <- list(Repos = 1.25, Paturage = 3, Deplacement = 4.5)
-  
-  for (state in unique(data$state)) {
-    print(paste("▶️ Traitement de l'état :", state))
-    
-    # CORRECTION : Utilisation de basename() pour éviter la duplication du chemin
-    save_rds_prefix <- file.path(save_dir, paste0(basename(save_rds_name), "_", state, "_"))
-    
-    days <- unique(data$day)
-    data_state <- data %>% filter(state == !!state)
-    
-    if (nrow(data_state) < 5) {
-      print(paste("⚠️ État", state, "trop peu de données. Passage au suivant."))
-      next
-    }
-    
-    print("🔄 Initialisation du cluster parallèle...")
-    
-    # Ferme tout cluster existant avant d'en créer un nouveau
-    if (exists("clus")) {
-      stopCluster(clus)
-      rm(clus)
-      gc()
-    }
-    
-    # Création du cluster
-    clus <- makeCluster(ncores, outfile="")
-    print(clus)
-    
-    # Exportation des variables nécessaires
-    clusterExport(clus, list("days", "state", "save_rds_prefix", "data", "data_state", "grid", "flock_sizes", "prop_time_collar_on", "Tmax", "Ds", "hmin"), envir = environment())
-    clusterExport(clus, as.list(lsf.str(.GlobalEnv)))  # Export des fonctions définies
-    clusterCall(clus, function() {
-      suppressPackageStartupMessages(library(tidyverse))
-      suppressPackageStartupMessages(library(adehabitatHR))
-    })
-    
-    print("🖥️ Exécution du calcul en parallèle...")
-    
-    tryCatch({
-      parLapply(clus, days, function(d) {
-        print(paste0("📅 Jour ", d, "/", max(days), " état ", state))
-        
-        ltr <- data_state %>% filter(day == d) %>% mutate(time = as.POSIXct(time))
-        
-        if (nrow(ltr) > 0) {
-          ltr <- split_at_gap(ltr, max_gap = Tmax) 
-          ltr <- as.ltraj(xy = ltr[c("x", "y")], date = ltr$time, id = ltr$ID)
-          
-          hr <- kernelbb(ltr, sig1 = Ds[[state]], sig2=10, grid = grid, same4all = FALSE, byburst = TRUE, extent = 0.5, nalpha = 25)
-          
-          charge_jour <- flock_load_from_daily_and_state_UD_kernelbb(hr,
-                                                                     n_points_state = sum(data$day == d & data$state == state),
-                                                                     n_points_total = sum(data$day == d), flock_sizes[d], prop_time_collar_on)
-          
-          charge_jour$day <- d
-          charge_jour$state <- state
-          saveRDS(charge_jour, file = paste0(save_rds_prefix, d, ".rds"))
-        }
-      })
-    }, error = function(e) {
-      print("❌ Erreur dans parLapply() ! Passage à l'exécution séquentielle.")
-      for (d in days) {
-        print(paste0("📅 Jour ", d, "/", max(days), " état ", state))
-        
-        ltr <- data_state %>% filter(day == d) %>% mutate(time = as.POSIXct(time))
-        
-        if (nrow(ltr) > 0) {
-          ltr <- split_at_gap(ltr, max_gap = Tmax) 
-          ltr <- as.ltraj(xy = ltr[c("x", "y")], date = ltr$time, id = ltr$ID)
-          
-          hr <- kernelbb(ltr, sig1 = Ds[[state]], sig2=10, grid = grid, same4all = FALSE, byburst = TRUE, extent = 0.5, nalpha = 25)
-          
-          charge_jour <- flock_load_from_daily_and_state_UD_kernelbb(hr,
-                                                                     n_points_state = sum(data$day == d & data$state == state),
-                                                                     n_points_total = sum(data$day == d), flock_sizes[d], prop_time_collar_on)
-          
-          charge_jour$day <- d
-          charge_jour$state <- state
-          saveRDS(charge_jour, file = paste0(save_rds_prefix, d, ".rds"))
-        }
-      }
-    })
-    
-    stopCluster(clus)
-    
-    print("📁 Fusion des fichiers de sortie...")
-    
-    files <- list.files(save_dir, pattern=paste0("^", basename(save_rds_name)), full.names=TRUE)
-    if (length(files) > 0) {
-      charge <- as.data.frame(rbindlist(lapply(files, readRDS), use.names=TRUE))
-      saveRDS(charge, output_file)
-      lapply(files, file.remove)
-    } else {
-      print("⚠️ Aucun fichier à fusionner pour", state)
-    }
-  }
-}
-
-
-flock_load_by_day_and_state_to_rds_kernelbb_test_2 <- function(data, grid, save_dir, save_rds_name, flock_sizes, prop_time_collar_on) {
-  data$day <- yday(data$time)
-  
-  # Supprime le fichier existant s'il y en a un
-  output_file <- file.path(save_dir, basename(save_rds_name))
-  if (file.exists(output_file)) {
-    print(paste("🗑️ Suppression du fichier existant :", output_file))
-    file.remove(output_file)
-  }
-  
-  Tmax = 42  # Max gap en minutes
-  hmin = 15
-  Ds <- list(Repos = 1.25, Paturage = 3, Deplacement = 4.5)
-  
-  # Liste pour stocker tous les fichiers temporaires
-  all_files <- c()
-  
-  for (state in unique(data$state)) {
-    print(paste("▶️ Traitement de l'état :", state))
-    
-    # Correction : On évite de supprimer les fichiers des autres états
-    save_rds_prefix <- file.path(save_dir, paste0(basename(save_rds_name), "_", state, "_"))
-    
-    days <- unique(data$day)
-    data_state <- data %>% filter(state == !!state)
-    
-    if (nrow(data_state) < 5) {
-      print(paste("⚠️ État", state, "trop peu de données. Passage au suivant."))
-      next
-    }
-    
-    print("🔄 Initialisation du cluster parallèle...")
-    
-    # Ferme tout cluster existant avant d'en créer un nouveau
-    if (exists("clus") && inherits(clus, "cluster")) {
-      print("🚨 Un cluster existant détecté. Fermeture en cours...")
-      stopCluster(clus)
-      rm(clus)
-      gc()
-    }
-    
-    # Création du cluster
-    clus <- makeCluster(ncores, outfile="")
-    print("✅ Cluster initialisé.")
-    
-    # Exportation des variables nécessaires
-    clusterExport(clus, list("days", "state", "save_rds_prefix", "data", "data_state", "grid", "flock_sizes", "prop_time_collar_on", "Tmax", "Ds", "hmin"), envir = environment())
-    clusterExport(clus, as.list(lsf.str(.GlobalEnv)))  # Export des fonctions définies
-    clusterCall(clus, function() {
-      suppressPackageStartupMessages(library(tidyverse))
-      suppressPackageStartupMessages(library(adehabitatHR))
-    })
-    
-    print("🖥️ Exécution du calcul en parallèle...")
-    
-    tryCatch({
-      parLapply(clus, days, function(d) {
-        print(paste0("📅 Jour ", d, "/", max(days), " état ", state))
-        
-        ltr <- data_state %>% filter(day == d) %>% mutate(time = as.POSIXct(time))
-        
-        if (nrow(ltr) > 0) {
-          ltr <- split_at_gap(ltr, max_gap = Tmax) 
-          ltr <- as.ltraj(xy = ltr[c("x", "y")], date = ltr$time, id = ltr$ID)
-          
-          hr <- kernelbb(ltr, sig1 = Ds[[state]], sig2=10, grid = grid, same4all = FALSE, byburst = TRUE, extent = 0.5, nalpha = 25)
-          
-          charge_jour <- flock_load_from_daily_and_state_UD_kernelbb(hr,
-                                                                     n_points_state = sum(data$day == d & data$state == state),
-                                                                     n_points_total = sum(data$day == d), flock_sizes[d], prop_time_collar_on)
-          
-          charge_jour$day <- d
-          charge_jour$state <- state
-          
-          save_file <- paste0(save_rds_prefix, d, ".rds")
-          print(paste("💾 Sauvegarde du fichier :", save_file))
-          saveRDS(charge_jour, file = save_file)
-          
-          # Ajoute le fichier à la liste pour fusion finale
-          all_files <<- c(all_files, save_file)
-        }
-      })
-    }, error = function(e) {
-      print("❌ Erreur dans parLapply() ! Passage à l'exécution séquentielle.")
-      for (d in days) {
-        print(paste0("📅 Jour ", d, "/", max(days), " état ", state))
-        
-        ltr <- data_state %>% filter(day == d) %>% mutate(time = as.POSIXct(time))
-        
-        if (nrow(ltr) > 0) {
-          ltr <- split_at_gap(ltr, max_gap = Tmax) 
-          ltr <- as.ltraj(xy = ltr[c("x", "y")], date = ltr$time, id = ltr$ID)
-          
-          hr <- kernelbb(ltr, sig1 = Ds[[state]], sig2=10, grid = grid, same4all = FALSE, byburst = TRUE, extent = 0.5, nalpha = 25)
-          
-          charge_jour <- flock_load_from_daily_and_state_UD_kernelbb(hr,
-                                                                     n_points_state = sum(data$day == d & data$state == state),
-                                                                     n_points_total = sum(data$day == d), flock_sizes[d], prop_time_collar_on)
-          
-          charge_jour$day <- d
-          charge_jour$state <- state
-          
-          save_file <- paste0(save_rds_prefix, d, ".rds")
-          print(paste("💾 Sauvegarde du fichier :", save_file))
-          saveRDS(charge_jour, file = save_file)
-          
-          # Ajoute le fichier à la liste pour fusion finale
-          all_files <<- c(all_files, save_file)
-        }
-      }
-    })
-    
-    if (exists("clus") && inherits(clus, "cluster")) {
-      print("📌 Fermeture propre du cluster...")
-      stopCluster(clus)
-      rm(clus)
-      gc()
-    }
-  }
-  
-  print("📁 Fusion finale des fichiers de sortie...")
-  
-  if (length(all_files) == 0) {
-    print("⚠️ Aucun fichier valide pour la fusion finale.")
-    return()
-  }
-  
-  # Vérifier que les fichiers existent avant la fusion
-  all_files_valides <- all_files[file.exists(all_files) & file.size(all_files) > 0]
-  
-  if (length(all_files_valides) > 0) {
-    print(paste("📂 Fusion de", length(all_files_valides), "fichiers en un seul fichier final..."))
-    charge_final <- as.data.frame(rbindlist(lapply(all_files_valides, readRDS), use.names=TRUE))
-    saveRDS(charge_final, output_file)
-    print(paste("✅ Fusion réussie. Fichier final :", output_file))
-    
-    # Suppression des fichiers temporaires après fusion
-    lapply(all_files_valides, file.remove)
-  } else {
-    print("⚠️ Tous les fichiers intermédiaires sont vides ou introuvables. Aucune fusion possible.")
-  }
-}
-
-
-
-
-
-
-
-
-
 
 
 flock_load_by_day_and_state_to_rds_kernelbb_test_10 <- function(data, grid, save_dir, save_rds_name, flock_sizes, prop_time_collar_on, ncores = 4) {
@@ -589,12 +327,6 @@ flock_load_by_day_and_state_to_rds_kernelbb_test_10 <- function(data, grid, save
     
     days <- unique(data$day)
     data_state <- data %>% filter(state == !!state)
-    
-    if (nrow(data_state) < 5) {
-      print(paste("État", state, "trop peu de données. Passage au suivant."))
-      next
-    }
-    
     
     
     if (exists("clus") && inherits(clus, "cluster")) {
@@ -679,165 +411,115 @@ flock_load_by_day_and_state_to_rds_kernelbb_test_10 <- function(data, grid, save
   print("Fichiers individuels générés !!!")
 }
 
-flock_merge_rds_files <- function(save_dir, save_rds_name) {
-  library(data.table)
+
+
+
+
+flock_load_by_day_and_state_to_rds_kernelbb_test_11 <- function(data, grid, save_dir, save_rds_name, flock_sizes, prop_time_collar_on) {
+  library(lubridate)
+  library(tidyverse)
+  library(adehabitatHR)
   
-  print("Fusion des fichiers...")
+  data$day <- yday(data$time)
   
-  final_rds_path <- file.path(save_dir, paste0(save_rds_name, alpage, ".rds"))
-  
-  # 🔹 Trouver tous les fichiers générés
-  all_files <- list.files(save_dir, pattern = paste0("^", save_rds_name, "_"), full.names = TRUE)
-  
-  if (length(all_files) == 0) {
-    print("Aucun fichier à fusionner.")
-    return(NULL)
+  # Vérification du dossier
+  if (!dir.exists(save_dir)) {
+    dir.create(save_dir, recursive = TRUE)
   }
   
-  # 🔹 Vérifier que les fichiers existent et ne sont pas vides
-  all_files_valides <- all_files[file.exists(all_files) & file.size(all_files) > 0]
+  Tmax = 42  # Max gap en minutes
+  hmin = 15
+  Ds <- list(Repos = 1.25, Paturage = 3, Deplacement = 4.5)
   
-  if (length(all_files_valides) > 0) {
-    print(paste("Fusion de", length(all_files_valides), "fichiers en un seul fichier final..."))
+  all_files <- c()  # Liste des fichiers RDS générés
+  
+  for (state in unique(data$state)) {
+    cat("Traitement de l'état :", state, "\n")
     
-    charge_final <- as.data.frame(rbindlist(lapply(all_files_valides, readRDS), use.names = TRUE))
+    save_rds_prefix <- file.path(save_dir, paste0(save_rds_name, "_", state, "_"))
+    days <- unique(data$day)
+    data_state <- data %>% filter(state == !!state)
     
-    saveRDS(charge_final, final_rds_path)
-    
-    # 🔹 Suppression des fichiers temporaires après fusion
-    lapply(all_files_valides, file.remove)
-    
-    
-    return(final_rds_path)
-  } else {
-    print("Tous les fichiers intermédiaires sont vides ou introuvables. Aucune fusion possible.")
-    return(NULL)
+    for (d in days) {
+      cat("Jour", d, "sur", max(days), "état", state, "\n")
+      
+      ltr <- data_state %>% filter(day == d) %>% mutate(time = as.POSIXct(time))
+      
+      if (nrow(ltr) > 0) {
+        ltr <- split_at_gap(ltr, max_gap = Tmax) 
+        ltr <- as.ltraj(xy = ltr[c("x", "y")], date = ltr$time, id = ltr$ID)
+        
+        hr <- kernelbb(ltr, sig1 = Ds[[state]], sig2 = 10, grid = grid, same4all = FALSE, byburst = TRUE, extent = 0.5, nalpha = 25)
+        
+        charge_jour <- flock_load_from_daily_and_state_UD_kernelbb(hr,
+                                                                   n_points_state = sum(data$day == d & data$state == state),
+                                                                   n_points_total = sum(data$day == d), flock_sizes[d], prop_time_collar_on)
+        
+        charge_jour$day <- d
+        charge_jour$state <- state
+        
+        save_file <- file.path(save_dir, paste0(save_rds_name, "_", state, "_", d, ".rds"))
+        saveRDS(charge_jour, file = save_file)
+        
+        all_files <- c(all_files, save_file)
+      }
+    }
   }
+  
+  cat("Fichiers individuels générés !!!\n")
 }
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 flock_merge_rds_files <- function(save_dir, state_daily_rds_prefix) {
-   # 📌 Lister tous les fichiers RDS générés
+  library(data.table)
+  library(stringr)
+  
   all_files <- list.files(save_dir, pattern = paste0("^", state_daily_rds_prefix), full.names = TRUE)
   
-  # 📌 Vérifier s'il y a des fichiers à fusionner
   if (length(all_files) == 0) {
-    print("⚠️ Aucun fichier trouvé pour la fusion.")
     return(NULL)
   }
   
-  # 📌 Charger tous les fichiers RDS
+  rds_list <- lapply(all_files, function(file) {
+    data <- readRDS(file)
+    
+    if (!"state" %in% colnames(data)) {
+      state_detected <- str_extract(basename(file), "_(Repos|Paturage|Deplacement)_")
+      state_detected <- gsub("_", "", state_detected)
+      data$state <- state_detected
+    }
+    return(data)
+  })
+  
+  charge_final <- as.data.frame(rbindlist(rds_list, use.names = TRUE, fill = TRUE))
+  
+  output_file <- file.path(save_dir, paste0(state_daily_rds_prefix, "_merged.rds"))
+  saveRDS(charge_final, output_file)
+  
+  file.remove(all_files)
+  
+  return(output_file)
+}
+
+flock_merge_rds_files_0 <- function(save_dir, state_daily_rds_prefix) {
+  # Lister tous les fichiers RDS générés
+  all_files <- list.files(save_dir, pattern = paste0("^", state_daily_rds_prefix), full.names = TRUE)
+  
+  # Vérifier s'il y a des fichiers à fusionner
+  if (length(all_files) == 0) {
+    print("Aucun fichier trouvé pour la fusion.")
+    return(NULL)
+  }
+  
+  # Charger tous les fichiers RDS
   rds_list <- lapply(all_files, function(file) {
     data <- readRDS(file)
     
     # Vérification : Si la colonne state est manquante ou mal définie, on la rajoute
     if (!"state" %in% colnames(data)) {
-      print(paste("🚨 Problème détecté : fichier sans colonne 'state'", file))
+      print(paste("Problème détecté : fichier sans colonne 'state'", file))
       # Extraire le nom du fichier pour retrouver l'état (ex: "_Repos_" ou "_Paturage_")
       state_detected <- str_extract(basename(file), "_(Repos|Paturage|Deplacement)_")
       state_detected <- gsub("_", "", state_detected)  # Nettoyage du nom
@@ -847,14 +529,14 @@ flock_merge_rds_files <- function(save_dir, state_daily_rds_prefix) {
     return(data)
   })
   
-  # 📌 Fusionner tous les fichiers en une seule data.frame
+  # Fusionner tous les fichiers en une seule data.frame
   charge_final <- as.data.frame(rbindlist(rds_list, use.names = TRUE, fill = TRUE))
   
-  # 📌 Vérifier que toutes les valeurs state sont bien présentes
+  # Vérifier que toutes les valeurs state sont bien présentes
   print("🔍 Vérification des valeurs uniques de la colonne 'state' après fusion :")
   print(unique(charge_final$state))
   
-  # 📌 Sauvegarde du fichier final
+  # Sauvegarde du fichier final
   output_file <- file.path(save_dir, paste0(state_daily_rds_prefix,alpage, ".rds"))
   saveRDS(charge_final, output_file)
   
@@ -865,353 +547,99 @@ flock_merge_rds_files <- function(save_dir, state_daily_rds_prefix) {
 
 
 
-flock_load_by_day_and_state_to_rds_kernelbb_test_5<- function(data, grid, save_dir, save_rds_name, flock_sizes, prop_time_collar_on, ncores = 4) {
-  # 🔹 Vérification et création du dossier de sauvegarde
-  if (!dir.exists(save_dir)) {
-    dir.create(save_dir, recursive = TRUE)
+flock_merge_rds_files_2 <- function(save_dir, state_daily_rds_prefix) {
+  # Lister tous les fichiers RDS générés
+  all_files <- list.files(save_dir, pattern = paste0("^", state_daily_rds_prefix), full.names = TRUE)
+  
+  # Vérifier s'il y a des fichiers à fusionner
+  if (length(all_files) == 0) {
+    print("Aucun fichier trouvé pour la fusion.")
+    return(NULL)
   }
   
-  # 🔹 Suppression de l'ancien fichier fusionné
-  final_rds_path <- file.path(save_dir, paste0(save_rds_name, "_merged.rds"))
-  if (file.exists(final_rds_path)) {
-    file.remove(final_rds_path)
-  }
-  
-  # 🔹 Ajout du jour dans la data
-  data$day <- yday(data$time)
-  
-  # 🔹 Définition des coefficients de diffusion
-  Ds <- list(
-    Repos = 1.25,
-    Paturage = 3,
-    Deplacement = 4.5
-  )
-  
-  Tmax <- 42  # Max gap en minutes pour split_at_gap
-  hmin <- 15
-  
-  # 🔹 Liste des fichiers générés
-  rds_files <- c()
-  
-  for (state in unique(data$state)) {
-    print(paste("▶️ Traitement de l'état :", state))
+  # Charger tous les fichiers RDS
+  rds_list <- lapply(all_files, function(file) {
+    data <- readRDS(file)
     
-    save_rds_prefix <- file.path(save_dir, paste0(save_rds_name, "_", state, "_"))
-    days <- unique(data$day)
-    data_state <- data %>% filter(state == !!state)
-    
-    if (nrow(data_state) < 5) {
-      print(paste("⚠️ État", state, "trop peu de données. Passage au suivant."))
-      next
-    }
-    
-    print("🔄 Initialisation du cluster parallèle...")
-    
-    # 🔹 Fermeture des clusters existants avant d'en créer un nouveau
-    if (exists("clus")) {
-      stopCluster(clus)
-      rm(clus)
-      gc()
-    }
-    
-    # 🔹 Création du cluster
-    clus <- makeCluster(ncores, outfile = "")
-    print(clus)
-    
-    # 🔹 Exportation des variables nécessaires
-    clusterExport(clus, list("days", "state", "save_rds_prefix", "data", "data_state", "grid", "flock_sizes", "prop_time_collar_on", "Tmax", "Ds", "hmin"), envir = environment())
-    clusterExport(clus, as.list(lsf.str(.GlobalEnv)))  # Export des fonctions définies
-    clusterCall(clus, function() {
-      suppressPackageStartupMessages(library(tidyverse))
-      suppressPackageStartupMessages(library(adehabitatHR))
-    })
-    
-    print("🖥️ Exécution du calcul en parallèle...")
-    
-    # 🔹 Exécution parallèle avec gestion des erreurs
-    results <- tryCatch({
-      parLapply(clus, days, function(d) {
-        print(paste0("📅 Jour ", d, "/", max(days), " état ", state))
-        
-        ltr <- data_state %>% filter(day == d) %>% mutate(time = as.POSIXct(time))
-        
-        if (nrow(ltr) > 0) {
-          ltr <- split_at_gap(ltr, max_gap = Tmax) 
-          ltr <- as.ltraj(xy = ltr[c("x", "y")], date = ltr$time, id = ltr$ID)
-          
-          hr <- kernelbb(ltr, sig1 = Ds[[state]], sig2 = 10, grid = grid, same4all = FALSE, byburst = TRUE, extent = 0.5, nalpha = 25)
-          
-          charge_jour <- flock_load_from_daily_and_state_UD_kernelbb(
-            hr,
-            n_points_state = sum(data$day == d & data$state == state),
-            n_points_total = sum(data$day == d),
-            flock_sizes[d],
-            prop_time_collar_on
-          )
-          
-          charge_jour$day <- d
-          charge_jour$state <- state
-          rds_file <- paste0(save_rds_prefix, d, ".rds")
-          saveRDS(charge_jour, file = rds_file)
-          
-          return(rds_file)
-        }
-        return(NULL)
-      })
-    }, error = function(e) {
-      print("❌ Erreur dans parLapply() ! Passage à l'exécution séquentielle.")
+    # Vérification : Si la colonne state est manquante ou mal définie, on la rajoute
+    if (!"state" %in% colnames(data)) {
+      print(paste("Problème détecté : fichier sans colonne 'state'", file))
       
-      seq_results <- list()
-      for (d in days) {
-        print(paste0("📅 Jour ", d, "/", max(days), " état ", state))
-        
-        ltr <- data_state %>% filter(day == d) %>% mutate(time = as.POSIXct(time))
-        
-        if (nrow(ltr) > 0) {
-          ltr <- split_at_gap(ltr, max_gap = Tmax) 
-          ltr <- as.ltraj(xy = ltr[c("x", "y")], date = ltr$time, id = ltr$ID)
-          
-          hr <- kernelbb(ltr, sig1 = Ds[[state]], sig2 = 10, grid = grid, same4all = FALSE, byburst = TRUE, extent = 0.5, nalpha = 25)
-          
-          charge_jour <- flock_load_from_daily_and_state_UD_kernelbb(
-            hr,
-            n_points_state = sum(data$day == d & data$state == state),
-            n_points_total = sum(data$day == d),
-            flock_sizes[d],
-            prop_time_collar_on
-          )
-          
-          charge_jour$day <- d
-          charge_jour$state <- state
-          rds_file <- paste0(save_rds_prefix, d, ".rds")
-          saveRDS(charge_jour, file = rds_file)
-          seq_results <- c(seq_results, rds_file)
-        }
-      }
-      return(seq_results)
-    })
-    
-    stopCluster(clus)
-    
-    rds_files <- c(rds_files, unlist(results))
-  }
-  
-  # 🔹 Nettoyage de la liste des fichiers (suppression des NULL et fichiers inexistants)
-  rds_files <- rds_files[!is.na(rds_files) & file.exists(rds_files)]
-  
-  # 🔹 Fusion des fichiers `.rds`
-  merge_rds_files(rds_files, final_rds_path)
-  
-  print(paste("🎉 Processus terminé. Fichier final :", final_rds_path))
-}
-
-# 🛠 Fonction de fusion des fichiers `.rds`
-merge_rds_files <- function(files, output_file) {
-  if (length(files) == 0) {
-    stop("⚠️ Aucun fichier valide trouvé pour la fusion.")
-  }
-  
-  print("📂 Chargement des fichiers pour fusion...")
-  
-  all_data <- lapply(files, function(f) {
-    if (file.exists(f) && file.size(f) > 0) {
-      tryCatch({
-        readRDS(f)
-      }, error = function(e) {
-        print(paste("⚠️ Erreur de lecture pour", f, ":", e$message))
-        return(NULL)
-      })
-    } else {
-      print(paste("⚠️ Fichier inexistant ou vide :", f))
-      return(NULL)
+      # Extraire le nom du fichier pour retrouver l'état (ex: "_Repos_" ou "_Paturage_")
+      state_detected <- stringr::str_extract(basename(file), "_(Repos|Paturage|Deplacement)_")
+      state_detected <- gsub("_", "", state_detected)  # Nettoyage du nom
+      data$state <- state_detected
     }
+    
+    return(data)
   })
   
-  all_data <- Filter(Negate(is.null), all_data)
+  # Fusionner tous les fichiers en une seule data.frame
+  charge_final <- data.table::rbindlist(rds_list, use.names = TRUE, fill = TRUE)
   
-  if (length(all_data) == 0) {
-    stop("❌ Aucun fichier lisible. Vérifie tes fichiers sources !")
-  }
+  # Vérifier que toutes les valeurs state sont bien présentes
+  print("🔍 Vérification des valeurs uniques de la colonne 'state' après fusion :")
+  print(unique(charge_final$state))
   
-  merged_data <- as.data.frame(rbindlist(all_data, use.names = TRUE))
+  # Sauvegarde du fichier final
+  output_file <- file.path(save_dir, paste0(state_daily_rds_prefix,alpage, ".rds"))
+  saveRDS(charge_final, output_file)
   
-  print("✅ Fusion terminée. Enregistrement en cours...")
+  print(paste("✅ Fusion réussie ! Fichier final :", output_file))
   
-  saveRDS(merged_data, file = output_file)
+  # Suppression des fichiers intermédiaires
+  file.remove(all_files)
+  print("🗑️  Fichiers intermédiaires supprimés avec succès.")
   
-  print(paste("🎉 Fichier fusionné enregistré :", output_file))
+  return(output_file)
 }
 
 
 
-
-
-
-
-library(lubridate)
-library(tidyverse)
-library(adehabitatHR)
-library(parallel)
-library(data.table)
-
-library(lubridate)
-library(tidyverse)
-library(adehabitatHR)
-library(parallel)
-library(data.table)
-
-flock_load_by_day_and_state_to_rds_kernelbb_final <- function(data, grid, save_dir, save_rds_name, flock_sizes, prop_time_collar_on, ncores = 4) {
-  # 🔹 Vérification du dossier de sauvegarde
-  if (!dir.exists(save_dir)) {
-    dir.create(save_dir, recursive = TRUE)
-  }
+flock_merge_rds_files_3 <- function(save_dir, state_daily_rds_prefix) {
+  # Lister tous les fichiers RDS générés
+  all_files <- list.files(save_dir, pattern = paste0("^", state_daily_rds_prefix), full.names = TRUE)
   
-  # 🔹 Supprime l'ancien fichier fusionné s'il existe
-  final_rds_path <- file.path(save_dir, paste0(save_rds_name, "_merged.rds"))
-  if (file.exists(final_rds_path)) {
-    file.remove(final_rds_path)
-  }
-  
-  # 🔹 Ajout du jour dans la data
-  data$day <- yday(data$time)
-  
-  # 🔹 Définition des coefficients de diffusion
-  Ds <- list(
-    Repos = 1.25,
-    Paturage = 3,
-    Deplacement = 4.5
-  )
-  
-  Tmax <- 42  # Max gap en minutes pour split_at_gap
-  hmin <- 15
-  
-  # 🔹 Liste pour stocker tous les fichiers RDS créés
-  all_files <- c()
-  
-  for (state in unique(data$state)) {
-    print(paste("▶️ Traitement de l'état :", state))
-    
-    # **Correction du problème de chemin**
-    save_rds_prefix <- file.path(save_dir, paste0(save_rds_name, "_", state, "_"))
-    
-    days <- unique(data$day)
-    data_state <- data %>% filter(state == !!state)
-    
-    if (nrow(data_state) < 5) {
-      print(paste("⚠️ État", state, "trop peu de données. Passage au suivant."))
-      next
-    }
-    
-    print("🔄 Initialisation du cluster parallèle...")
-    
-    # 🔹 Fermeture de tout cluster existant
-    if (exists("clus")) {
-      stopCluster(clus)
-      rm(clus)
-      gc()
-    }
-    
-    # 🔹 Création du cluster
-    clus <- makeCluster(ncores, outfile = "")
-    print("✅ Cluster initialisé.")
-    
-    # 🔹 Exportation des variables nécessaires
-    clusterExport(clus, list("days", "state", "save_rds_prefix", "data", "data_state", "grid", "flock_sizes", "prop_time_collar_on", "Tmax", "Ds", "hmin"), envir = environment())
-    clusterExport(clus, as.list(lsf.str(.GlobalEnv)))  # Export des fonctions définies
-    clusterCall(clus, function() {
-      suppressPackageStartupMessages(library(tidyverse))
-      suppressPackageStartupMessages(library(adehabitatHR))
-    })
-    
-    print("🖥️ Exécution du calcul en parallèle...")
-    
-    # 🔹 Exécution parallèle avec gestion des erreurs
-    tryCatch({
-      parLapply(clus, days, function(d) {
-        print(paste0("📅 Jour ", d, "/", max(days), " état ", state))
-        
-        ltr <- data_state %>% filter(day == d) %>% mutate(time = as.POSIXct(time))
-        
-        if (nrow(ltr) > 0) {
-          ltr <- split_at_gap(ltr, max_gap = Tmax) 
-          ltr <- as.ltraj(xy = ltr[c("x", "y")], date = ltr$time, id = ltr$ID)
-          
-          hr <- kernelbb(ltr, sig1 = Ds[[state]], sig2 = 10, grid = grid, same4all = FALSE, byburst = TRUE, extent = 0.5, nalpha = 25)
-          
-          charge_jour <- flock_load_from_daily_and_state_UD_kernelbb(
-            hr,
-            n_points_state = sum(data$day == d & data$state == state),
-            n_points_total = sum(data$day == d),
-            flock_sizes[d],
-            prop_time_collar_on
-          )
-          
-          charge_jour$day <- d
-          charge_jour$state <- state
-          save_file <- file.path(save_dir, paste0(save_rds_name, "_", state, "_", d, ".rds"))
-          saveRDS(charge_jour, file = save_file)
-          
-          all_files <<- c(all_files, save_file)
-        }
-      })
-    }, error = function(e) {
-      print("❌ Erreur dans parLapply() ! Passage à l'exécution séquentielle.")
-      
-      for (d in days) {
-        print(paste0("📅 Jour ", d, "/", max(days), " état ", state))
-        
-        ltr <- data_state %>% filter(day == d) %>% mutate(time = as.POSIXct(time))
-        
-        if (nrow(ltr) > 0) {
-          ltr <- split_at_gap(ltr, max_gap = Tmax) 
-          ltr <- as.ltraj(xy = ltr[c("x", "y")], date = ltr$time, id = ltr$ID)
-          
-          hr <- kernelbb(ltr, sig1 = Ds[[state]], sig2 = 10, grid = grid, same4all = FALSE, byburst = TRUE, extent = 0.5, nalpha = 25)
-          
-          charge_jour <- flock_load_from_daily_and_state_UD_kernelbb(
-            hr,
-            n_points_state = sum(data$day == d & data$state == state),
-            n_points_total = sum(data$day == d),
-            flock_sizes[d],
-            prop_time_collar_on
-          )
-          
-          charge_jour$day <- d
-          charge_jour$state <- state
-          save_file <- file.path(save_dir, paste0(save_rds_name, "_", state, "_", d, ".rds"))
-          saveRDS(charge_jour, file = save_file)
-          
-          all_files <<- c(all_files, save_file)
-        }
-      }
-    })
-    
-    stopCluster(clus)
-  }
-  
-  # 🔹 Fusion des fichiers `.rds`
-  print("📁 Fusion finale des fichiers...")
-  
+  # Vérifier s'il y a des fichiers à fusionner
   if (length(all_files) == 0) {
-    print("⚠️ Aucun fichier valide pour la fusion finale.")
-    return()
+    print("Aucun fichier trouvé pour la fusion.")
+    return(NULL)
   }
   
-  # Vérifier que les fichiers existent avant la fusion
-  all_files_valides <- all_files[file.exists(all_files) & file.size(all_files) > 0]
-  
-  if (length(all_files_valides) > 0) {
-    print(paste("📂 Fusion de", length(all_files_valides), "fichiers en un seul fichier final..."))
-    charge_final <- as.data.frame(rbindlist(lapply(all_files_valides, readRDS), use.names = TRUE))
-    saveRDS(charge_final, final_rds_path)
-    print(paste("✅ Fusion réussie. Fichier final :", final_rds_path))
+  # Charger tous les fichiers RDS
+  rds_list <- lapply(all_files, function(file) {
+    data <- readRDS(file)
     
-    # Suppression des fichiers temporaires après fusion
-    lapply(all_files_valides, file.remove)
-  } else {
-    print("⚠️ Tous les fichiers intermédiaires sont vides ou introuvables. Aucune fusion possible.")
-  }
+    # Vérification : Si la colonne state est manquante ou mal définie, on la rajoute
+    if (!"state" %in% colnames(data)) {
+      print(paste("Problème détecté : fichier sans colonne 'state'", file))
+      
+      # Extraire le nom du fichier pour retrouver l'état (ex: "_Repos_" ou "_Paturage_")
+      state_detected <- stringr::str_extract(basename(file), "_(Repos|Paturage|Deplacement)_")
+      state_detected <- gsub("_", "", state_detected)  # Nettoyage du nom
+      data$state <- state_detected
+    }
+    
+    return(data)
+  })
+  
+  # Fusionner tous les fichiers en une seule data.frame
+  charge_final <- data.table::rbindlist(rds_list, use.names = TRUE, fill = TRUE)
+  
+  # Vérifier que toutes les valeurs state sont bien présentes
+  print("🔍 Vérification des valeurs uniques de la colonne 'state' après fusion :")
+  print(unique(charge_final$state))
+  
+  # Sauvegarde du fichier final
+  output_file <- file.path(save_dir, paste0(state_daily_rds_prefix, alpage, ".rds"))
+  saveRDS(charge_final, output_file)
+  
+  print(paste("✅ Fusion réussie ! Fichier final :", output_file))
+  
+  # Suppression des fichiers intermédiaires
+  file.remove(all_files)
+  print("🗑️  Fichiers intermédiaires supprimés avec succès.")
+  
+  return(output_file)
 }
 
-
-#Test
