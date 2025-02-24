@@ -390,7 +390,7 @@ for (alpage in alpages) {
   if (!dir.exists(alpage_save_dir)) dir.create(alpage_save_dir, recursive = TRUE)
   
   ## BY DAY AND BY STATE ##
-  flock_load_by_day_and_state_to_rds_kernelbb_test_10(
+  flock_load_by_day_and_state_to_rds_kernelbb_test_11(
     data, 
     pheno_t0, 
     alpage_save_dir,  
@@ -402,7 +402,7 @@ for (alpage in alpages) {
   gc()
   
   # Merge individual files
-  merged_file <- flock_merge_rds_files(alpage_save_dir, state_daily_rds_prefix)
+  merged_file <- flock_merge_rds_files_0(alpage_save_dir, state_daily_rds_prefix)
   
   rm(data)
   
