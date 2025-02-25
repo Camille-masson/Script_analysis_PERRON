@@ -1508,11 +1508,8 @@ h1, h2, h3, h4, h5, h6 {
 font-family: Georgia, serif;
 }
 </style>
-<div id="introduction" class="section level2" number="0.1">
-<h2><span class="header-section-number">0.1</span> Introduction</h2>
-</div>
-<div id="introduction-1" class="section level1" number="1">
-<h1><span class="header-section-number">1</span> Introduction</h1>
+<div id="introduction" class="section level2" number="1">
+<h2><span class="header-section-number">1</span> Introduction</h2>
 <p>This Git project aims to share the script written and used by PERRON
 Rémy for the preparation of the article:<br />
 <em>“Fine-scale tracking of sheep grazing in mountain pastures: frugal
@@ -1533,11 +1530,12 @@ studied alpine pastures.</p>
 management via GitHub, facilitating transparency and reproducibility of
 the methodology.</p>
 <hr />
-<div id="installation-and-repository-setup" class="section level2" number="1.1">
-<h2><span class="header-section-number">1.1</span> Installation and
+</div>
+<div id="installation-and-repository-setup" class="section level2" number="2">
+<h2><span class="header-section-number">2</span> Installation and
 Repository Setup</h2>
-<div id="prerequisites" class="section level3" number="1.1.1">
-<h3><span class="header-section-number">1.1.1</span> Prerequisites</h3>
+<div id="prerequisites" class="section level3" number="2.1">
+<h3><span class="header-section-number">2.1</span> Prerequisites</h3>
 <p>Before starting, ensure you have installed Git:</p>
 <ul>
 <li><a href="https://git-scm.com/">Git</a> | Also, make sure it is
@@ -1552,8 +1550,8 @@ following tutorials if needed:
 </ul></li>
 </ul>
 </div>
-<div id="cloning-the-repository" class="section level3" number="1.1.2">
-<h3><span class="header-section-number">1.1.2</span> Cloning the
+<div id="cloning-the-repository" class="section level3" number="2.2">
+<h3><span class="header-section-number">2.2</span> Cloning the
 Repository</h3>
 <p>The project is structured as a GitHub repository. To clone it
 locally:</p>
@@ -1567,9 +1565,8 @@ git clone https://github.com/Camille-masson/Catlog_processing.git</code></pre>
 <hr />
 </div>
 </div>
-<div id="file-organization" class="section level2" number="1.2">
-<h2><span class="header-section-number">1.2</span> File
-Organization</h2>
+<div id="file-organization" class="section level2" number="3">
+<h2><span class="header-section-number">3</span> File Organization</h2>
 <p>The project follows a well-structured organization:</p>
 <pre><code>📂 Catlog_processing/ # Main project directory
 │-- 📂 Functions/     # Folder containing shared functions via Git
@@ -1593,21 +1590,21 @@ structure of the provided training dataset. See Section 4 for more
 details on data format and structure.</p>
 <hr />
 </div>
-<div id="input-data-description" class="section level2" number="1.3">
-<h2><span class="header-section-number">1.3</span> Input Data
+<div id="input-data-description" class="section level2" number="4">
+<h2><span class="header-section-number">4</span> Input Data
 Description</h2>
-<div id="demonstration-dataset" class="section level3" number="1.3.1">
-<h3><span class="header-section-number">1.3.1</span> Demonstration
+<div id="demonstration-dataset" class="section level3" number="4.1">
+<h3><span class="header-section-number">4.1</span> Demonstration
 Dataset</h3>
 <p>This dataset is already structured and correctly shared via Git. It
 is a dataset with a fictitious sampling year (9999), and the fictitious
 pasture is named Alpage_demo. This training dataset includes a sample of
-GPS points from three collars over a ten days sampling period. It helps
-illustrate and understand the different input tables and facilitates the
+GPS points from three collars over a ten day sampling period. It helps
+illustrate and clarified the different input tables and facilitates the
 interpretation of the main script.</p>
 </div>
-<div id="gps-data" class="section level3" number="1.3.2">
-<h3><span class="header-section-number">1.3.2</span> GPS Data</h3>
+<div id="gps-data" class="section level3" number="4.2">
+<h3><span class="header-section-number">4.2</span> GPS Data</h3>
 <p>Each GPS collar extracted via the Catlog software generates a
 <code>.csv</code> file encoded in UTF-8, containing the following
 columns:</p>
@@ -1680,11 +1677,10 @@ columns:</p>
 <p><strong>Note</strong>: For users without Catlog collars, only the
 columns Date, Time, Latitude, and Longitude are essential.</p>
 </div>
-<div id="metadata-tables" class="section level3" number="1.3.3">
-<h3><span class="header-section-number">1.3.3</span> Metadata
-Tables</h3>
-<div id="information-on-studied-pastures-aaaa_pasture_info.csv" class="section level4" number="1.3.3.1">
-<h4><span class="header-section-number">1.3.3.1</span> Information on
+<div id="metadata-tables" class="section level3" number="4.3">
+<h3><span class="header-section-number">4.3</span> Metadata Tables</h3>
+<div id="information-on-studied-pastures-aaaa_pasture_info.csv" class="section level4" number="4.3.1">
+<h4><span class="header-section-number">4.3.1</span> Information on
 Studied Pastures: <code>AAAA_pasture_info.csv</code></h4>
 <p>This table compiles the main information related to the pasture. In
 the demonstration dataset, only one pasture is detailed, but if other
@@ -1754,9 +1750,9 @@ parameters</em></td>
 </tbody>
 </table>
 </div>
-<div id="evolution-of-herd-size-aaaa_tailles_troupeaux.csv" class="section level4" number="1.3.3.2">
-<h4><span class="header-section-number">1.3.3.2</span> Evolution of Herd
-Size: <code>AAAA_tailles_troupeaux.csv</code></h4>
+<div id="evolution-of-herd-size-aaaa_herd_sizes.csv" class="section level4" number="4.3.2">
+<h4><span class="header-section-number">4.3.2</span> Evolution of Herd
+Size: <code>AAAA_herd_sizes.csv</code></h4>
 <p>This table presents the evolution of herd size throughout the alpine
 grazing season.</p>
 <p>The herd size can be:</p>
@@ -1796,10 +1792,10 @@ herd size on the given date.</p>
 </tbody>
 </table>
 </div>
-<div id="individual-information-on-collars-and-animals-aaaa_colliers_poses.csv" class="section level4" number="1.3.3.3">
-<h4><span class="header-section-number">1.3.3.3</span> Individual
+<div id="individual-information-on-collars-and-animals-aaaa_collars_deployed.csv" class="section level4" number="4.3.3">
+<h4><span class="header-section-number">4.3.3</span> Individual
 Information on Collars and Animals:
-<code>AAAA_colliers_poses.csv</code></h4>
+<code>AAAA_collars_deployed.csv</code></h4>
 <p>This table contains information related to the individuals on which
 the collars were placed, such as species, sampling period, proportion of
 time the collar was active, as well as deployment and removal dates for
@@ -1825,25 +1821,29 @@ each individual.</p>
 <td>Type of collar programming</td>
 </tr>
 <tr class="odd">
-<td>Alpage</td>
+<td>pasture</td>
 <td>Name of the pasture where the individual is located</td>
 </tr>
 <tr class="even">
+<td>Species</td>
+<td>Species</td>
+</tr>
+<tr class="odd">
 <td>Period_sampling</td>
 <td>Sampling period, duration in seconds <em>(time between
 acquisitions)</em></td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td>Fraction_day_active</td>
 <td>Fraction of the day during which the collar is active <em>(1 =
 24h/24)</em></td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td>deployment_date</td>
 <td>Collar deployment date <em>(format:
 <code>dd/mm/yyyy hh:mm:ss</code>)</em></td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td>removal_date</td>
 <td>Collar removal date <em>(format:
 <code>dd/mm/yyyy hh:mm:ss</code>)</em></td>
@@ -1853,10 +1853,10 @@ acquisitions)</em></td>
 </div>
 </div>
 </div>
-<div id="code-description" class="section level2" number="1.4">
-<h2><span class="header-section-number">1.4</span> Code Description</h2>
-<div id="config.r" class="section level3" number="1.4.1">
-<h3><span class="header-section-number">1.4.1</span> config.R</h3>
+<div id="code-description" class="section level2" number="5">
+<h2><span class="header-section-number">5</span> Code Description</h2>
+<div id="config.r" class="section level3" number="5.1">
+<h3><span class="header-section-number">5.1</span> config.R</h3>
 <p>The <code>config.R</code> script automatically configures the
 project’s working environment. It defines:</p>
 <ul>
@@ -1871,8 +1871,8 @@ automatically called in <code>script_analysis.R</code> (Section
 <code>0. LIBRARIES AND CONSTANTS</code>).</p>
 <hr />
 </div>
-<div id="script_analysis.r" class="section level3" number="1.4.2">
-<h3><span class="header-section-number">1.4.2</span>
+<div id="script_analysis.r" class="section level3" number="5.2">
+<h3><span class="header-section-number">5.2</span>
 script_analysis.R</h3>
 <p>The <code>script_analysis.R</code> script is the main script that
 generates all output data (behavior characterization, stocking rate
@@ -2105,8 +2105,8 @@ pasture.</li>
 <hr />
 </div>
 </div>
-<div id="possible-issues-and-errors" class="section level2" number="1.5">
-<h2><span class="header-section-number">1.5</span> Possible Issues and
+<div id="possible-issues-and-errors" class="section level2" number="6">
+<h2><span class="header-section-number">6</span> Possible Issues and
 Errors</h2>
 <p>This section identifies key issues that users may encounter when
 using this project:</p>
@@ -2150,7 +2150,6 @@ collars.<br />
 <li>It’s important to plan accordingly. :)</li>
 </ul></li>
 </ul>
-</div>
 </div>
 
 

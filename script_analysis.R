@@ -402,7 +402,7 @@ for (alpage in alpages) {
   gc()
   
   # Merge individual files
-  merged_file <- flock_merge_rds_files_0(alpage_save_dir, state_daily_rds_prefix)
+  merged_file <- flock_merge_rds_files(alpage_save_dir, state_daily_rds_prefix)
   
   rm(data)
   
