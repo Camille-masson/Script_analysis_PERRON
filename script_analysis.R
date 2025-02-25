@@ -16,6 +16,8 @@ ALPAGES_TOTAL <- list(
 )
 ALPAGES <- ALPAGES_TOTAL[[as.character(YEAR)]]
 
+
+
 #### 1. DATA SIMPLIFICATION IN GPKG ####
 #--------------------------------------#
 
@@ -58,7 +60,6 @@ if (FALSE) {  # Set to TRUE to execute
 }
 
 
-##GOOD##
 
 #### 2. BJONERAAS FILTER CALIBRATION ####
 #--------------------------------------#
@@ -169,7 +170,7 @@ if (F) {
   dev.off()
 }
 
-##GOOD##
+
 
 #### 3. FILTERING CATLOG DATA ####
 #--------------------------------#
@@ -242,7 +243,7 @@ if (F) {
   }
 }
 
-##GOOD##
+
 
 
 #### 4. HMM FITTING #### 
@@ -337,7 +338,7 @@ if (F) {
 }
 
 
-##GOOD##
+
 
 #### 5. FLOCK STOCKING RATE (Charge) BY DAY AND BY STATE ####
 #-------------------------------------------------------------#
